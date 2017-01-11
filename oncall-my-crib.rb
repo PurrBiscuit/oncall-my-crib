@@ -21,8 +21,8 @@ require "json"
 
 # report to healthchecks.io endpoint to let me know the script is still running as expected every 5 minutes
 
-@email = ""
-@password = ""
+@mytags_email = ""
+@mytags_password = ""
 @url = "https://mytaglist.com"
 
 def sign_in(email, password)
@@ -58,6 +58,18 @@ def is_signed_in(cookie)
   )["d"]
 end
 
+def arm_system
+
+end
+
+def disarm_system
+
+end
+
+def check_on_call
+
+end
+
 # Check to see if the login "cookie" exists on the system already
 if File.exists?("cookie")
   cookie = File.read("cookie")
@@ -66,11 +78,12 @@ if File.exists?("cookie")
   logged_in = is_signed_in(cookie)
     # If it's not then login again and save the cookie to the system
     unless logged_in
-      sign_in(@email, @password)
+      sign_in(@mytags_email, @mytags_password)
     end
 else
   # Login and set "cookie" if not logged in already
   sign_in(@email, @password)
 end
 
+# Check to see if I'm on call yet
 
