@@ -1,9 +1,6 @@
 require "httparty"
 require "json"
 
-# Check Pagerduty Schedule to see if I'm on call yet or if a new override has been set
-  # save the start and end dates to the schedule
-
 # If I'm not on call
   # system already disarmed - don't do anything
   # system armed - turn it off
