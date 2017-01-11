@@ -1,14 +1,6 @@
 require "httparty"
 require "json"
 
-# Login Process
-# check to see if cookie exists on file system
-  # if it doesn't then sign in
-  # if it does
-    # check to see if the cookie is still valid by checking the "IsSignedIn" API endpoint with it
-      # if it is then continue with the rest of the script
-      # if it isn't then delete the old cookie, sign on using "SignIn" endpoint, and then save the new cookie to somewhere on the file system
-
 # Check Pagerduty Schedule to see if I'm on call yet or if a new override has been set
   # save the start and end dates to the schedule
 
@@ -23,16 +15,20 @@ require "json"
 
 @mytags_email = ""
 @mytags_password = ""
-@url = "https://mytaglist.com"
+@mytags_url = "https://mytaglist.com"
+@pd_api_token = ""
+@pd_escalation_policy_id = [""]
+@schedule_id = [""]
+@pd_user_id = [""]
 
-def sign_in(email, password)
+def mytags_sign_in(email, password)
   body = {
       :email => email,
       :password => password
   }
 
   cookie = HTTParty.post(
-    "#{@url}/ethAccount.asmx/SignIn",
+    "#{@mytags_url}/ethAccount.asmx/SignIn",
     :body => body.to_json,
     :headers => { 
       "Content-Type" => "application/json; charset=utf-8",
@@ -47,9 +43,9 @@ def sign_in(email, password)
   return cookie
 end
 
-def is_signed_in(cookie)
+def mytags_is_signed_in(cookie)
   HTTParty.post(
-    "#{@url}/ethAccount.asmx/IsSignedIn",
+    "#{@mytags_url}/ethAccount.asmx/IsSignedIn",
     :headers => { 
       "Content-Type" => "application/json; charset=utf-8",
       "Content-Length" => "0",
@@ -66,7 +62,30 @@ def disarm_system
 
 end
 
-def check_on_call
+def on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
+  resp = HTTParty.get(
+    "https://api.pagerduty.com/oncalls",
+    :headers => {
+      "Accept" => "application/vnd.pagerduty+json;version=2",
+      "Authorization" => "Token token=#{api_token}"
+    },
+    :query => {
+      "time_zone" => "UTC",
+      "user_ids" => user_ids,
+      "escalation_policy_ids" => escalation_policy_ids,
+      "schedule_ids" => schedule_ids,
+      "until" => "#{Time.now + (60 * 60 * 24 * 60)}"
+    }
+  )["oncalls"][0]
+
+  on_call_times = {}
+  on_call_times["start"] = resp["start"]
+  on_call_times["end"] = resp["end"]
+
+  return on_call_times
+end
+
+def health_check
 
 end
 
@@ -75,15 +94,24 @@ if File.exists?("cookie")
   cookie = File.read("cookie")
   
   # Check to see if the login "cookie" is still valid
-  logged_in = is_signed_in(cookie)
+  logged_in = mytags_is_signed_in(cookie)
     # If it's not then login again and save the cookie to the system
     unless logged_in
-      sign_in(@mytags_email, @mytags_password)
+      mytags_sign_in(@mytags_email, @mytags_password)
     end
 else
   # Login and set "cookie" if not logged in already
-  sign_in(@email, @password)
+  mytags_sign_in(@mytags_email, @mytags_password)
 end
 
 # Check to see if I'm on call yet
+on_call_times = on_call(@pd_api_token, @pd_user_id, @pd_escalation_policy_id, @schedule_id)
+on_call_start = DateTime.rfc3339(on_call_times["start"]).to_time.utc
+on_call_end = DateTime.rfc3339(on_call_times["end"]).to_time.utc
 
+if Time.now.utc >= on_call_start
+  # puts "you're on call!"
+end
+
+
+# Hit the health check endpoint as the last step
