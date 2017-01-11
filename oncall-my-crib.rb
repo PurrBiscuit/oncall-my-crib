@@ -86,6 +86,10 @@ def on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
   return on_call_times
 end
 
+def system_status
+
+end
+
 # Check to see if the login "cookie" exists on the system already
 if File.exists?("cookie")
   cookie = File.read("cookie")
