@@ -21,6 +21,18 @@ require "json"
 @schedule_id = [""]
 @pd_user_id = [""]
 
+def arm_system
+
+end
+
+def disarm_system
+
+end
+
+def health_check
+
+end
+
 def mytags_sign_in(email, password)
   body = {
       :email => email,
@@ -54,14 +66,6 @@ def mytags_is_signed_in(cookie)
   )["d"]
 end
 
-def arm_system
-
-end
-
-def disarm_system
-
-end
-
 def on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
   resp = HTTParty.get(
     "https://api.pagerduty.com/oncalls",
@@ -83,10 +87,6 @@ def on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
   on_call_times["end"] = resp["end"]
 
   return on_call_times
-end
-
-def health_check
-
 end
 
 # Check to see if the login "cookie" exists on the system already
