@@ -1,0 +1,15 @@
+{
+  "wireless_tags": {
+    "email": "test@gmail.com",
+    "password": "123456ABCDEF"
+  },
+  "pagerduty": {
+    "api_token": "98765PLYTH",
+    "escalation_policy_id": ["PTF4917"],
+    "schedule_id": ["LSQ54G6"],
+    "user_id": ["VXW3ED4"] 
+  },
+  "health_check": {
+    "url": "https://hchk.io/asdlkas123-fsdfdslkff-4234-sddsfe"
+  }
+}
