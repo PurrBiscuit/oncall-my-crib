@@ -11,7 +11,7 @@ OptionParser.new do |opts|
 end.parse!
 
 # Read in the secrets from the vars.config file and set as attributes
-@vars = JSON.parse(File.read("vars.json"))
+@vars = JSON.parse(File.read(File.dirname(__FILE__) + "/vars.json"))
 
 @pagerduty = @vars["pagerduty"]
 @wireless_tags = @vars["wireless_tags"]
@@ -84,7 +84,7 @@ def self.wireless_tags_sign_in(email, password)
 
   cookie = resp.headers["set-cookie"]
 
-  File.open("cookie", "wb") do |output|
+  File.open("oncallmycrib-cookie", "wb") do |output|
     output.write(cookie)
   end
 
@@ -172,8 +172,8 @@ def self.validate_response(resp)
 end
 
 # Check to see if the login "cookie" exists on the system already
-if File.exists?("cookie")
-  cookie = File.read("cookie")
+if File.exists?("oncallmycrib-cookie")
+  cookie = File.read("oncallmycrib-cookie")
   
   # Check to see if the login "cookie" is still valid
   logged_in = wireless_tags_is_signed_in(cookie)
