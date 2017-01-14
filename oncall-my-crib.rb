@@ -1,6 +1,7 @@
 require "httparty"
 require "json"
 require "optionparser"
+require "time"
 
 options = {}
 
@@ -128,7 +129,7 @@ def self.on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
   scheduled = resp["oncalls"][0]
 
   if scheduled == nil
-    puts "no on call found for the time period specified - #{Time.now} to #{Time.now + (60 * 60 * 24 * 50)}"
+    puts "#{Time.now.utc.iso8601} - no on call found for the time period specified - #{Time.now} to #{Time.now + (60 * 60 * 24 * 50)}"
   else
     on_call_start = scheduled["start"]
   end
@@ -166,7 +167,7 @@ end
 
 def self.validate_response(resp)
   if resp.response.class != Net::HTTPOK
-    puts "ERROR: #{resp.parsed_response["Message"]} - exiting script"
+    puts "#{Time.now.utc.iso8601} ERROR: #{resp.parsed_response["Message"]} - exiting script"
     exit 1
   end
 end
@@ -190,7 +191,7 @@ end
 on_call_start = DateTime.rfc3339(on_call(@pagerduty["api_token"], @pagerduty["user_id"], @pagerduty["escalation_policy_id"], @pagerduty["schedule_id"])).to_time
 
 if on_call_start.nil?
-  puts "ERROR: No oncall start time detected - check what the pagerduty api is returning"
+  puts "#{Time.now.utc.iso8601} - ERROR: no oncall start time detected - check what the pagerduty api is returning"
   exit 1
 end
 
@@ -202,28 +203,28 @@ if simulate_on_call
 elsif simulate_off_call
   on_call_start = Time.now + (60)
 elsif options.has_key?(:simulate) && (options[:simulate] != "oncall" || options[:simulate] != "offcall")
-  puts "please pass only 'oncall' or 'offcall' for the --simulate flag"
+  puts "#{Time.now.utc.iso8601} - ERROR: please pass only 'oncall' or 'offcall' for the --simulate flag"
   exit 1
 end
 
 if Time.now >= on_call_start
-  puts "you're on call"
+  puts "#{Time.now.utc.iso8601} - you're on call"
   # Check the status of the system (eventState = 0 means "disarmed")
   system_status(cookie).each do |x| 
     if x["event_state"] == 0
-      puts "#{x["tag_name"]} disarmed -#{ ' (simulated)' if simulate_on_call } arming now"
+      puts "#{Time.now.utc.iso8601} - #{x["tag_name"]} disarmed -#{ ' (simulated)' if simulate_on_call } arming now"
       arm_system(cookie, x["id"]) unless simulate_on_call
     else
-      puts "#{x["tag_name"]} already armed"
+      puts "#{Time.now.utc.iso8601} - #{x["tag_name"]} already armed"
     end
   end
 else
-  puts "not on call yet"
+  puts "#{Time.now.utc.iso8601} - not on call yet"
   system_status(cookie).each do |x|
     if x["event_state"] == 0
-      puts "#{x["tag_name"]} already disarmed"
+      puts "#{Time.now.utc.iso8601} - #{x["tag_name"]} already disarmed"
     else
-      puts "#{x["tag_name"]} armed -#{ ' (simulated)' if simulate_off_call } disarming now"
+      puts "#{Time.now.utc.iso8601} - #{x["tag_name"]} armed -#{ ' (simulated)' if simulate_off_call } disarming now"
       disarm_system(cookie, x["id"]) unless simulate_off_call
     end
   end
