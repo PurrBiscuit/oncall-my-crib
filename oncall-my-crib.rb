@@ -11,15 +11,18 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-# Read in the secrets from the vars.config file and set as attributes
-@vars = JSON.parse(File.read(File.dirname(__FILE__) + "/vars.json"))
+required_env_vars = [
+  "ONCALL_HEALTH_CHECK_URL",
+  "ONCALL_PD_API_TOKEN",
+  "ONCALL_PD_USER_ID",
+  "ONCALL_PD_ESCALATION_POLICY_ID",
+  "ONCALL_PD_SCHEDULE_ID",
+  "ONCALL_WIRELESS_TAGS_EMAIL",
+  "ONCALL_WIRELESS_TAGS_PASSWORD"
+]
 
-@pagerduty = @vars["pagerduty"]
-@wireless_tags = @vars["wireless_tags"]
-
-# default to standard api url if none given in vars.config
-@wireless_tags["url"] = @wireless_tags.has_key?("url") ? @vars["wireless_tags"]["url"] : "https://mytaglist.com"
-@pagerduty["url"] = @pagerduty.has_key?("url") ? @vars["pagerduty"]["url"] : "https://api.pagerduty.com"
+@wireless_tags_url = "https://mytaglist.com"
+@pagerduty_url = "https://api.pagerduty.com"
 
 def self.arm_system(cookie, id)
   body = {
@@ -27,7 +30,7 @@ def self.arm_system(cookie, id)
   }
 
   resp = HTTParty.post(
-    "#{@wireless_tags["url"]}/ethClient.asmx/ArmAll",
+    "#{@wireless_tags_url}/ethClient.asmx/ArmAll",
     :body => body.to_json,
     :headers => {
       "Content-Type" => "application/json; charset=utf-8",
@@ -46,7 +49,7 @@ def self.disarm_system(cookie, id)
   }
 
   resp = HTTParty.post(
-    "#{@wireless_tags["url"]}/ethClient.asmx/DisarmAll",
+    "#{@wireless_tags_url}/ethClient.asmx/DisarmAll",
     :body => body.to_json,
     :headers => {
       "Content-Type" => "application/json; charset=utf-8",
@@ -60,10 +63,14 @@ end
 
 def health_check
   resp = HTTParty.get(
-    @vars["health_check"]["url"],
+    ENV["ONCALL_HEALTH_CHECK_URL"],
   )
 
   self.validate_response(resp)
+end
+
+def self.log(message)
+  puts "#{Time.now.iso8601} - #{message}"
 end
 
 def self.wireless_tags_sign_in(email, password)
@@ -73,7 +80,7 @@ def self.wireless_tags_sign_in(email, password)
   }
 
   resp = HTTParty.post(
-    "#{@wireless_tags["url"]}/ethAccount.asmx/SignIn",
+    "#{@wireless_tags_url}/ethAccount.asmx/SignIn",
     :body => body.to_json,
     :headers => { 
       "Content-Type" => "application/json; charset=utf-8",
@@ -94,7 +101,7 @@ end
 
 def self.wireless_tags_is_signed_in(cookie)
   resp = HTTParty.post(
-    "#{@wireless_tags["url"]}/ethAccount.asmx/IsSignedIn",
+    "#{@wireless_tags_url}/ethAccount.asmx/IsSignedIn",
     :headers => { 
       "Content-Type" => "application/json; charset=utf-8",
       "Content-Length" => "0",
@@ -110,7 +117,7 @@ end
 def self.on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
   # Check the regular on call schedule for on call times
   resp = HTTParty.get(
-    "#{@pagerduty["url"]}/oncalls",
+    "#{@pagerduty_url}/oncalls",
     :headers => {
       "Accept" => "application/vnd.pagerduty+json;version=2",
       "Authorization" => "Token token=fLKofhk73AwW3Md2yh_P"
@@ -138,7 +145,7 @@ end
 
 def self.system_status(cookie)
   resp = HTTParty.post(
-    "#{@wireless_tags["url"]}/ethClient.asmx/GetTagList",
+    "#{@wireless_tags_url}/ethClient.asmx/GetTagList",
     :headers => {
       "Content-Type" => "application/json; charset=utf-8",
       "Content-Length" => "0",
@@ -166,10 +173,30 @@ end
 
 def self.validate_response(resp)
   if resp.response.class != Net::HTTPOK
-    puts "#{Time.now.utc.iso8601} ERROR: #{resp.parsed_response["Message"]} - exiting script"
+    log("ERROR: #{resp.parsed_response["Message"]} - exiting script")
     exit 1
   end
 end
+
+def self.vars_check(env_vars)
+  missing_vars = []
+
+  env_vars.each do |var|
+    unless ENV.has_key?(var)
+      missing_vars << var
+    end
+  end
+
+  if missing_vars.empty?
+    self.log("all required env vars have been set - continuing...")
+  else
+    self.log("ERROR: need to set the #{missing_vars.join(", ")} env var(s) before continuing")
+    exit 1
+  end
+end
+
+# check if require env vars have been set
+vars_check(required_env_vars)
 
 # Check to see if the login "cookie" exists on the system already
 if File.exists?("oncallmycrib-cookie")
@@ -179,25 +206,25 @@ if File.exists?("oncallmycrib-cookie")
   logged_in = wireless_tags_is_signed_in(cookie)
     # If it's not then login again and save the cookie to the system
     unless logged_in
-      cookie = wireless_tags_sign_in(@wireless_tags["email"], @wireless_tags["password"])
+      cookie = wireless_tags_sign_in(ENV["ONCALL_WIRELESS_TAGS_EMAIL"], ENV["ONCALL_WIRELESS_TAGS_PASSWORD"])
     end
 else
   # Login and set "cookie" if not logged in already
-  cookie = wireless_tags_sign_in(@wireless_tags["email"], @wireless_tags["password"])
+  cookie = wireless_tags_sign_in(ENV["ONCALL_WIRELESS_TAGS_EMAIL"], ENV["ONCALL_WIRELESS_TAGS_PASSWORD"])
 end
 
 # Check to see if I'm on call yet 
 on_call_check = on_call(
-  @pagerduty["api_token"], 
-  @pagerduty["user_id"], 
-  @pagerduty["escalation_policy_id"], 
-  @pagerduty["schedule_id"]
+  ENV["ONCALL_PD_API_TOKEN"], 
+  ["#{ENV['ONCALL_PD_USER_ID']}"], 
+  ["#{ENV['ONCALL_PD_ESCALATION_POLICY_ID']}"], 
+  ["#{ENV['ONCALL_PD_SCHEDULE_ID']}"]
 )
 
 on_call_start = DateTime.rfc3339(on_call_check).to_time unless on_call_check.nil?
 
 if on_call_start.nil?
-  puts "#{Time.now.iso8601} - no oncall start time detected - assuming offcall for now"
+  log("no oncall start time detected - assuming offcall for now")
   on_call_start = Time.now + (60)
 end
 
@@ -209,28 +236,28 @@ if simulate_on_call
 elsif simulate_off_call
   on_call_start = Time.now + (60)
 elsif options.has_key?(:simulate) && (options[:simulate] != "oncall" || options[:simulate] != "offcall")
-  puts "#{Time.now.iso8601} - ERROR: please pass only 'oncall' or 'offcall' for the --simulate flag"
+  log("ERROR: please pass only 'oncall' or 'offcall' for the --simulate flag")
   exit 1
 end
 
 if Time.now >= on_call_start
-  puts "#{Time.now.iso8601} - you're on call"
+  log("you're on call")
   # Check the status of the system (eventState = 0 means "disarmed")
   system_status(cookie).each do |x| 
     if x["event_state"] == 0
-      puts "#{Time.now.iso8601} - #{x["tag_name"]} disarmed -#{ ' (simulated)' if simulate_on_call } arming now"
+      log("#{x["tag_name"]} disarmed -#{ ' (simulated)' if simulate_on_call } arming now")
       arm_system(cookie, x["id"]) unless simulate_on_call
     else
-      puts "#{Time.now.iso8601} - #{x["tag_name"]} already armed"
+      log("#{x["tag_name"]} already armed")
     end
   end
 else
-  puts "#{Time.now.iso8601} - not on call yet"
+  log("not on call yet")
   system_status(cookie).each do |x|
     if x["event_state"] == 0
-      puts "#{Time.now.iso8601} - #{x["tag_name"]} already disarmed"
+      log("#{x["tag_name"]} already disarmed")
     else
-      puts "#{Time.now.iso8601} - #{x["tag_name"]} armed -#{ ' (simulated)' if simulate_off_call } disarming now"
+      log("#{x["tag_name"]} armed -#{ ' (simulated)' if simulate_off_call } disarming now")
       disarm_system(cookie, x["id"]) unless simulate_off_call
     end
   end
