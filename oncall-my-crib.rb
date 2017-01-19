@@ -187,9 +187,7 @@ def self.vars_check(env_vars)
     end
   end
 
-  if missing_vars.empty?
-    self.log("all required env vars have been set - continuing...")
-  else
+  unless missing_vars.empty?
     self.log("ERROR: need to set the #{missing_vars.join(", ")} env var(s) before continuing")
     exit 1
   end
