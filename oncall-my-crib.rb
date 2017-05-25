@@ -120,13 +120,13 @@ def self.on_call(api_token, user_ids, escalation_policy_ids, schedule_ids)
     "#{@pagerduty_url}/oncalls",
     :headers => {
       "Accept" => "application/vnd.pagerduty+json;version=2",
-      "Authorization" => "Token token=#{ENV["ONCALL_PD_API_TOKEN"]}"
+      "Authorization" => "Token token=#{ENV["api_token"]}"
     },
     :query => {
       "time_zone" => "EST",
-      "user_ids" => ["PQW6XH7"],
-      "escalation_policy_ids" => ["PJXN8C6"],
-      "schedule_ids" => ["PWS2SK2"],
+      "user_ids" => [user_ids],
+      "escalation_policy_ids" => [escalation_policy_ids],
+      "schedule_ids" => [schedule_ids],
       "until" => "#{Time.now + (60 * 60 * 24 * 50)}"
     }
   )
